@@ -1,12 +1,15 @@
 # Arducam IMX708 on Jetson Orin Nano Super
 
-A working setup for the Sony IMX708 (Raspberry Pi Camera Module 3 sensor) on the Jetson Orin Nano Super 8GB running JetPack 6.2.2 (L4T R36.5.0), with ROS 2 publishers in Python and C++.
+A working setup for the Sony IMX708 (Raspberry Pi Camera Module 3 sensor) on the Jetson Orin Nano Super 8GB Dev Kit running JetPack 6.2.2 (L4T R36.5.0), with ROS 2 publishers in Python and C++.
 
-The first approach I tried — building a custom DTBO and patching the bootloader — bricked the device and required USB recovery. The second approach took ten minutes. This document covers both so others don't lose time on the first one.
+The first approach I tried: building a custom DTBO and patching the bootloader bricked the device and required USB recovery.
+The second one: downgrading to 6.0 and trying patched drivers, went down a rabbit hole with kernel errors and had to reflash a number of times; I stopped counting after five when I no longer needed a tutorial for it.
+The third approach took ten minutes and I found no documentation on it.
+So, this document covers everything so others don't lose time on the previous ones, saving you 4 sleepless days of kernel panics.
 
 **Status:** working as of May 2026. Live capture via `nvarguscamerasrc`, V4L2 device exposed at `/dev/video0`, ROS 2 image topic publishing at 30 fps.
 
-**Hardware:** Jetson Orin Nano Super 8GB (P3767-0005 module, P3768 carrier), Arducam IMX708 Wide-Angle, connected to CAM1.
+**Hardware:** Jetson Orin Nano Super 8GB Dev Kit (P3767-0005 module, P3768 carrier), Arducam IMX708 Wide-Angle, connected to CAM1.
 
 ## Contents
 
@@ -18,7 +21,7 @@ The first approach I tried — building a custom DTBO and patching the bootloade
 - [Capture and recording](#capture-and-recording)
 - [Color correction caveat](#color-correction-caveat)
 - [ROS 2 publisher (Python)](#ros-2-publisher-python)
-- [ROS 2 publisher (C)](#ros-2-publisher-c)
+- [ROS 2 publisher (C++)](#ros-2-publisher-c++)
 - [Gotchas](#gotchas)
 - [Recovery from a bad DTB](docs/recovery-procedure.md)
 - [Resources](#resources)
@@ -26,6 +29,7 @@ The first approach I tried — building a custom DTBO and patching the bootloade
 ## TL;DR
 
 ```bash
+#no previous software required, this is based on a fresh flash
 wget https://github.com/ArduCAM/MIPI_Camera/releases/download/v0.0.3/install_full.sh
 chmod +x install_full.sh
 ./install_full.sh -m imx708          # reboots when done
@@ -52,6 +56,8 @@ The IMX708 is the sensor in the Raspberry Pi Camera Module 3. NVIDIA does not sh
 | Build kernel from source with patches | Heavy | Hours of work, breaks on point releases |
 | Arducam prebuilt installer | Works | Kernel module matched to L4T 36.5 / kernel 5.15.185-tegra |
 
+I even tried a fix from a reddit post of all places.
+
 Two further surprises after the driver works:
 
 1. NVIDIA's minimized rootfs for Orin Nano omits `nvarguscamerasrc`, `v4l2-ctl`, and the multimedia API. Tutorials assume these are present; on a fresh flash they aren't.
@@ -74,10 +80,10 @@ If `uname -r` matches a kernel Arducam has packaged, the installer downloads `ar
 
 Power off completely first.
 
-- Use CAM1 (not CAM0)
+- Use CAM1 (not CAM0, tried it as written in most tutorials and it just didn't work)
 - Lift the black plastic latch
 - Insert the FFC with blue contacts facing the heatsink
-- Press the latch back down, tug-test the cable
+- Press the latch back down, tug-test the cable (shouldn't budge when tugged gently, tugging hard can damage the cable so be careful)
 
 ### 2. Run the Arducam installer
 
@@ -145,13 +151,13 @@ See [`examples/snapshot.sh`](examples/snapshot.sh).
 
 ### Video recording
 
-The Orin Nano has no NVENC. `nvv4l2h264enc` is missing because the silicon is gone, not because a package is missing. Use software x264. See [`examples/record_1080p.sh`](examples/record_1080p.sh).
+The Orin Nano has no NVENC. `nvv4l2h264enc` is missing because the hardware silicon itself is gone, not because a package is missing. Use software x264. See [`examples/record_1080p.sh`](examples/record_1080p.sh).
 
 ## Color correction caveat
 
 Arducam's ISP tuning produces a persistent magenta cast and lifted blacks regardless of `wbmode`, `gainrange`, or `ispdigitalgainrange`. After testing:
 
-- WB modes 0–9 produce nearly identical output. The driver appears to ignore preset switching for IMX708.
+- WB modes 0–9 produce different output, each one worse than the last haha. The driver appears to ignore preset switching for IMX708.
 - Manual exposure changes brightness but never fixes color.
 - Gray-world WB on the Argus output gives R/G/B means around 106/98/108 — already balanced — yet the visual cast remains. The issue is in the per-pixel color correction matrix, not global gains.
 
@@ -239,3 +245,5 @@ ros2 run imx708_camera_cpp imx708_publisher --ros-args \
 
 Documentation: CC BY 4.0
 ROS 2 publishers (Python and C++): Apache-2.0
+
+P.S. Highly doubted, but if anyone from NVIDIA is reading this: please just put the sensor in jetson-io. I am begging you.
