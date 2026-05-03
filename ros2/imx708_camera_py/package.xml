@@ -4,7 +4,7 @@
   <name>imx708_camera_py</name>
   <version>0.1.0</version>
   <description>Arducam IMX708 ROS 2 publisher (Python) for Jetson Orin Nano.</description>
-  <maintainer email="you@example.com">your name</maintainer>
+  <maintainer email="brbarakaram1@gmail.com">your name</Barbara_Mansour>
   <license>Apache-2.0</license>
 
   <depend>rclpy</depend>
