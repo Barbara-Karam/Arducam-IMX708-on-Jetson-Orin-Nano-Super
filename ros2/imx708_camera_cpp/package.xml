@@ -4,7 +4,7 @@
   <name>imx708_camera_cpp</name>
   <version>0.1.0</version>
   <description>Arducam IMX708 ROS 2 publisher (C++) for Jetson Orin Nano.</description>
-  <maintainer email="brbarakaram1@example.com">your name</Barbara Mansour>
+  <maintainer email="brbarakaram1@example.com">your name</Barbara_Mansour>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
