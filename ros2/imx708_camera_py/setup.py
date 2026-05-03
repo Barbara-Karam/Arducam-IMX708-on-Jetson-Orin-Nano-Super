@@ -13,8 +13,8 @@ setup(
     ],
     install_requires=["setuptools"],
     zip_safe=True,
-    maintainer="your name",
-    maintainer_email="you@example.com",
+    maintainer="Barbara Mansour",
+    maintainer_email="brbarakaram1@gmail.com",
     description="Arducam IMX708 ROS 2 publisher for Jetson Orin Nano.",
     license="Apache-2.0",
     entry_points={
