@@ -33,3 +33,7 @@ gst-launch-1.0 -e nvarguscamerasrc num-buffers=20 sensor-id="$SENSOR_ID" \
 LAST="$(ls "$TMPDIR"/frame_*.jpg | tail -1)"
 cp "$LAST" "$OUT"
 echo "Saved: $OUT"
+
+#    Make it executable after creating:
+#    in bash
+#    chmod +x examples/snapshot.sh
