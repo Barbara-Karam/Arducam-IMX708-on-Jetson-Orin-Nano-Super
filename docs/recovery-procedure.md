@@ -1,6 +1,8 @@
 # Recovery from a bad DTB
 
-If a custom DTB or overlay leaves your Jetson unbootable — no HDMI, no SSH, no network — you don't need to reflash from scratch. NVIDIA ships a recovery workflow that lets you boot a minimal initrd over USB and edit the rootfs remotely. This is what got me out after the failed DTBO experiment.
+If a custom DTB or overlay leaves your Jetson unbootable, which is basically no HDMI, no SSH, no network. You don't need to reflash from scratch right away. NVIDIA ships a recovery workflow that lets you boot a minimal initrd over USB and edit the rootfs remotely. This is what got me out of Round 1 in the failed-attempt write-up.
+
+If the initrd path doesn't work for some reason, [SDK Manager](https://developer.nvidia.com/sdk-manager) is the nuclear option. It always works. It just takes quite a bit of time that I really needed at that moment.
 
 ## What you need
 
@@ -13,7 +15,7 @@ If a custom DTB or overlay leaves your Jetson unbootable — no HDMI, no SSH, no
 
 With the Jetson powered off:
 
-1. Short the FC REC pins on the carrier (or hold the recovery button).
+1. Short the FC REC pins on the carrier (or hold the recovery button, which I don't have on my Dev Kit but it exists in other versions).
 2. Power on the Jetson while still shorting the pins.
 3. Release after a couple of seconds.
 
@@ -78,7 +80,7 @@ Optional but recommended: remove the broken label entirely so the next reboot ca
 
 Save and exit.
 
-## Step 5. Unmount, reboot, breathe
+## Step 5. Unmount, reboot, take a breath
 
 ```bash
 sync
@@ -88,8 +90,26 @@ reboot
 
 The Jetson will exit the initrd and boot from its own storage with the restored `extlinux.conf`. You should see HDMI signal, SSH, and network come back.
 
+## If the initrd path doesn't work: SDK Manager
+
+The reliable fallback. It's slow but it always works.
+
+1. Install [NVIDIA SDK Manager](https://developer.nvidia.com/sdk-manager) on a host laptop running Ubuntu 22.04 (24.04 has compatibility issues as of this writing).
+2. Put the Jetson into Force Recovery mode the same way as Step 1 above.
+3. In SDK Manager: select your Jetson model (Orin Nano Super 8GB Dev Kit), the JetPack version you want, and at minimum the "Jetson OS" component. The "Jetson SDK Components" are optional and slow to install so skip them on a recovery flash if you just need a working device.
+4. Click Flash. Wait 30–60 minutes.
+5. When the OEM first-boot dialog appears, walk through it on HDMI or USB serial.
+6. Reinstall whatever you had on the device (camera driver, ROS, etc.).
+
+Things to know about SDK Manager:
+
+- It's GUI-only.
+- It needs a wired or fast wireless internet connection to download images. The first run pulls several gigabytes.
+- Some steps need the Jetson to already be online, which it can't be until those steps finish. SDK Manager handles this with a USB-Ethernet bridge during first boot.
+- If a step fails partway through, you usually have to start over from Force Recovery.
+
 ## Notes
 
-- Don't `flash.sh` from panic. It's a full reflash that wipes the rootfs and takes hours. The `--no-flash` initrd path is the right tool here.
+- Don't run a full reflash from panic. Try the initrd path first.
 - If you can't get the initrd to network correctly, a UART serial console is the next escalation. The Orin Nano carrier exposes UART on the 40-pin header. With a USB-UART adapter you can interrupt the boot menu and select a fallback label without needing HDMI.
 - Once you're back up, keep the working `primary` label intact and never make it the only label. Always have a fallback you can pick from the U-Boot or UEFI menu.
