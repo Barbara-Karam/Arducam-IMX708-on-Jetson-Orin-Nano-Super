@@ -2,10 +2,13 @@
 
 A working setup for the Sony IMX708 (Raspberry Pi Camera Module 3 sensor) on the Jetson Orin Nano Super 8GB Dev Kit running JetPack 6.2.2 (L4T R36.5.0), with ROS 2 publishers in Python and C++.
 
-The first approach I tried: building a custom DTBO and patching the bootloader bricked the device and required USB recovery.
-The second one: downgrading to 6.0 and trying patched drivers, went down a rabbit hole with kernel errors and had to reflash a number of times; I stopped counting after five when I no longer needed a tutorial for it.
+The first approach I tried : building a custom DTBO and patching the bootloader, bricked the device and required USB recovery.
+
+The second one : downgrading to JetPack 6.0 and trying the RidgeRun patches; went down a rabbit hole of kernel errors and forced me to reflash with SDK Manager a number of times. I stopped counting after five, when I no longer needed a tutorial for it.
+
 The third approach took ten minutes and I found no documentation on it.
-So, this document covers everything so others don't lose time on the previous ones, saving you 4 sleepless days of kernel panics.
+
+So this document covers everything so others don't lose time on the previous ones, saving you four sleepless days of kernel panics.
 
 **Status:** working as of May 2026. Live capture via `nvarguscamerasrc`, V4L2 device exposed at `/dev/video0`, ROS 2 image topic publishing at 30 fps.
 
@@ -15,13 +18,13 @@ So, this document covers everything so others don't lose time on the previous on
 
 - [TL;DR](#tldr)
 - [Background](#background)
-- [What didn't work: DTBO + UEFI patching](docs/failed-dtbo-approach.md)
+- [What didn't work: DTBO patching, then a JetPack 6.0 downgrade](docs/failed-dtbo-approach.md)
 - [What worked: Arducam installer](#what-worked-arducam-installer)
 - [Step-by-step install](#step-by-step-install)
 - [Capture and recording](#capture-and-recording)
 - [Color correction caveat](#color-correction-caveat)
 - [ROS 2 publisher (Python)](#ros-2-publisher-python)
-- [ROS 2 publisher (C++)](#ros-2-publisher-c++)
+- [ROS 2 publisher (C++)](#ros-2-publisher-c)
 - [Gotchas](#gotchas)
 - [Recovery from a bad DTB](docs/recovery-procedure.md)
 - [Resources](#resources)
@@ -29,7 +32,7 @@ So, this document covers everything so others don't lose time on the previous on
 ## TL;DR
 
 ```bash
-#no previous software required, this is based on a fresh flash
+# No previous software required. This assumes a fresh flash.
 wget https://github.com/ArduCAM/MIPI_Camera/releases/download/v0.0.3/install_full.sh
 chmod +x install_full.sh
 ./install_full.sh -m imx708          # reboots when done
@@ -48,15 +51,15 @@ gst-inspect-1.0 nvarguscamerasrc | head -5
 
 The IMX708 is the sensor in the Raspberry Pi Camera Module 3. NVIDIA does not ship a driver for it, does not provide ISP tuning files, and does not include it in `jetson-io`. Available options:
 
-| Approach | JP 6.2.2 status | Notes |
+| Approach | What happened | Notes |
 |---|---|---|
-| RidgeRun `nv_imx708` driver (public repo) | Doesn't apply | Public repo ships patches only for JP 4.6 / 5.1 / 6.0 |
-| Custom DTBO + `extlinux.conf` overlays | Doesn't apply | UEFI ignores `extlinux.conf` overlays on JP 6.x |
-| Pre-merged DTB via `fdtoverlay` | Possible but fragile | Silent failure on SKU mismatch |
-| Build kernel from source with patches | Heavy | Hours of work, breaks on point releases |
-| Arducam prebuilt installer | Works | Kernel module matched to L4T 36.5 / kernel 5.15.185-tegra |
-
-I even tried a fix from a reddit post of all places.
+| RidgeRun `nv_imx708` patches on JP 6.2.2 | Doesn't apply | Public repo only ships patches for JP 4.6 / 5.1 / 6.0 |
+| Custom DTBO + `extlinux.conf` overlays on JP 6.2.2 | Bricked boot | UEFI ignores `extlinux.conf` overlays on JP 6.x |
+| Pre-merged DTB via `fdtoverlay` on JP 6.2.2 | Bricked boot | Silent failure on SKU mismatch |
+| Downgrade to JetPack 6.0 + apply RidgeRun JP 6.0 patches | Doesn't apply cleanly | Kernel errors, multiple SDK Manager reflashes |
+| Random fix from a Reddit post (yes, really) | Didn't work | I was getting desperate |
+| Build kernel from source with patches | Heavy and brittle | Hours of work, breaks on point releases |
+| **Arducam prebuilt installer on JP 6.2.2** | **Worked** | Kernel module matched to L4T 36.5 / kernel 5.15.185-tegra |
 
 Two further surprises after the driver works:
 
@@ -80,10 +83,10 @@ If `uname -r` matches a kernel Arducam has packaged, the installer downloads `ar
 
 Power off completely first.
 
-- Use CAM1 (not CAM0, tried it as written in most tutorials and it just didn't work)
+- Use **CAM1**, not CAM0. I tried CAM0 first because most tutorials say to and it just didn't work.
 - Lift the black plastic latch
 - Insert the FFC with blue contacts facing the heatsink
-- Press the latch back down, tug-test the cable (shouldn't budge when tugged gently, tugging hard can damage the cable so be careful)
+- Press the latch back down, tug-test the cable. It shouldn't budge when tugged gently. Don't tug hard, you can damage the cable.
 
 ### 2. Run the Arducam installer
 
@@ -157,7 +160,7 @@ The Orin Nano has no NVENC. `nvv4l2h264enc` is missing because the hardware sili
 
 Arducam's ISP tuning produces a persistent magenta cast and lifted blacks regardless of `wbmode`, `gainrange`, or `ispdigitalgainrange`. After testing:
 
-- WB modes 0–9 produce different output, each one worse than the last haha. The driver appears to ignore preset switching for IMX708.
+- WB modes 0–9 produce different output, each one worse than the last haha. The driver appears to ignore preset switching for IMX708 in any useful way.
 - Manual exposure changes brightness but never fixes color.
 - Gray-world WB on the Argus output gives R/G/B means around 106/98/108 — already balanced — yet the visual cast remains. The issue is in the per-pixel color correction matrix, not global gains.
 
@@ -238,6 +241,7 @@ ros2 run imx708_camera_cpp imx708_publisher --ros-args \
 - [ROS 2 Humble](https://docs.ros.org/en/humble/)
 - [`cv_bridge` package](https://docs.ros.org/en/humble/p/cv_bridge/)
 - [RidgeRun IMX708 driver (older JetPacks)](https://github.com/RidgeRun/NVIDIA-Jetson-IMX708-RPIV3)
+- [NVIDIA SDK Manager](https://developer.nvidia.com/sdk-manager)
 - [Jetson Force Recovery and `l4t_initrd_flash.sh`](https://docs.nvidia.com/jetson/archives/r36.4/DeveloperGuide/IN/FlashingSupport.html)
 - [NVIDIA Developer Forums](https://forums.developer.nvidia.com/)
 
@@ -246,4 +250,6 @@ ros2 run imx708_camera_cpp imx708_publisher --ros-args \
 Documentation: CC BY 4.0
 ROS 2 publishers (Python and C++): Apache-2.0
 
-P.S. Highly doubted, but if anyone from NVIDIA is reading this: please just put the sensor in jetson-io. I am begging you.
+---
+
+P.S. Highly doubted, but if anyone from NVIDIA is reading this: please just put the sensor in `jetson-io`. I am begging you.
